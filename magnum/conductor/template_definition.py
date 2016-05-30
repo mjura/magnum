@@ -45,6 +45,11 @@ template_def_opts = [
                                          'kubecluster-coreos.yaml'),
                help=_(
                    'Location of template to build a k8s cluster on CoreOS.')),
+    cfg.StrOpt('k8s_jeos_template_path',
+               default=paths.basedir_def('templates/heat-kubernetes/'
+                                         'kubecluster.yaml'),
+               help=_(
+                   'Location of template to build a k8s cluster on JeOS.')),
     cfg.StrOpt('etcd_discovery_service_endpoint_format',
                default='https://discovery.etcd.io/new?size=%(size)d',
                help=_('Url for etcd public discovery endpoint.')),
@@ -77,7 +82,8 @@ template_def_opts = [
                       'on Ubuntu.')),
     cfg.ListOpt('enabled_definitions',
                 default=['magnum_vm_atomic_k8s', 'magnum_vm_coreos_k8s',
-                         'magnum_vm_atomic_swarm', 'magnum_vm_ubuntu_mesos'],
+                         'magnum_vm_atomic_swarm', 'magnum_vm_ubuntu_mesos',
+                         'magnum_vm_jeos_k8s'],
                 help=_('Enabled bay definition entry points.')),
 ]
 
@@ -630,3 +636,98 @@ class UbuntuMesosTemplateDefinition(BaseTemplateDefinition):
     @property
     def template_path(self):
         return cfg.CONF.bay.mesos_ubuntu_template_path
+
+
+class JeOSK8sTemplateDefinition(BaseTemplateDefinition):
+    """Kubernetes template for a openSUSE JeOS VM."""
+
+    provides = [
+        {'server_type': 'vm',
+         'os': 'jeos',
+         'coe': 'kubernetes'},
+    ]
+
+    def __init__(self):
+        super(JeOSK8sTemplateDefinition, self).__init__()
+        self.add_parameter('bay_uuid',
+                           bay_attr='uuid',
+                           param_type=str)
+        self.add_parameter('master_flavor',
+                           baymodel_attr='master_flavor_id')
+        self.add_parameter('minion_flavor',
+                           baymodel_attr='flavor_id')
+        self.add_parameter('number_of_minions',
+                           bay_attr='node_count',
+                           param_type=str)
+        self.add_parameter('number_of_masters',
+                           bay_attr='master_count',
+                           param_type=str)
+        self.add_parameter('docker_volume_size',
+                           baymodel_attr='docker_volume_size')
+        self.add_parameter('external_network',
+                           baymodel_attr='external_network_id',
+                           required=True)
+        self.add_parameter('network_driver',
+                           baymodel_attr='network_driver')
+        self.add_parameter('tls_disabled',
+                           baymodel_attr='tls_disabled',
+                           required=True)
+
+        self.add_output('api_address',
+                        bay_attr='api_address',
+                        mapping_type=K8sApiAddressOutputMapping)
+        self.add_output('kube_minions',
+                        bay_attr=None)
+        self.add_output('kube_minions_external',
+                        bay_attr='node_addresses')
+
+    def get_discovery_url(self, bay):
+        if hasattr(bay, 'discovery_url') and bay.discovery_url:
+            discovery_url = bay.discovery_url
+        else:
+            discovery_endpoint = (
+                cfg.CONF.bay.etcd_discovery_service_endpoint_format %
+                {'size': bay.master_count})
+            discovery_url = requests.get(discovery_endpoint).text
+            if not discovery_url:
+                raise exception.InvalidDiscoveryURL(
+                    discovery_url=discovery_url,
+                    discovery_endpoint=discovery_endpoint)
+            else:
+                bay.discovery_url = discovery_url
+        return discovery_url
+
+    def get_params(self, context, baymodel, bay, **kwargs):
+        extra_params = kwargs.pop('extra_params', {})
+        label_list = ['flannel_network_cidr', 'flannel_use_vxlan',
+                      'flannel_network_subnetlen']
+        scale_mgr = kwargs.pop('scale_manager', None)
+        if scale_mgr:
+            hosts = self.get_output('kube_minions')
+            extra_params['minions_to_remove'] = (
+                scale_mgr.get_removal_nodes(hosts))
+
+        extra_params['discovery_url'] = self.get_discovery_url(bay)
+        # Kubernetes backend code is still using v2 API
+        extra_params['auth_url'] = context.auth_url.replace("v3", "v2")
+        extra_params['username'] = context.user_name
+        extra_params['tenant_name'] = context.tenant
+        osc = clients.OpenStackClients(context)
+        extra_params['user_token'] = self._get_user_token(context, osc, bay)
+        extra_params['magnum_url'] = osc.magnum_url()
+
+        if baymodel.tls_disabled:
+            extra_params['loadbalancing_protocol'] = 'HTTP'
+            extra_params['kubernetes_port'] = 8080
+
+        for label in label_list:
+            extra_params[label] = baymodel.labels.get(label)
+
+        return super(JeOSK8sTemplateDefinition,
+                     self).get_params(context, baymodel, bay,
+                                      extra_params=extra_params,
+                                      **kwargs)
+
+    @property
+    def template_path(self):
+        return cfg.CONF.bay.k8s_jeos_template_path
