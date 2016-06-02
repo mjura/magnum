@@ -45,11 +45,6 @@ template_def_opts = [
                                          'kubecluster-coreos.yaml'),
                help=_(
                    'Location of template to build a k8s cluster on CoreOS.')),
-    cfg.StrOpt('k8s_jeos_template_path',
-               default=paths.basedir_def('templates/heat-kubernetes/'
-                                         'kubecluster.yaml'),
-               help=_(
-                   'Location of template to build a k8s cluster on JeOS.')),
     cfg.StrOpt('etcd_discovery_service_endpoint_format',
                default='https://discovery.etcd.io/new?size=%(size)d',
                help=_('Url for etcd public discovery endpoint.')),
@@ -80,6 +75,11 @@ template_def_opts = [
                                          'mesoscluster.yaml'),
                help=_('Location of template to build a Mesos cluster '
                       'on Ubuntu.')),
+    cfg.StrOpt('k8s_jeos_template_path',
+               default=paths.basedir_def('templates/heat-kubernetes/'
+                                         'kubecluster-jeos.yaml'),
+               help=_(
+                   'Location of template to build a k8s cluster on jeos.')),
     cfg.ListOpt('enabled_definitions',
                 default=['magnum_vm_atomic_k8s', 'magnum_vm_coreos_k8s',
                          'magnum_vm_atomic_swarm', 'magnum_vm_ubuntu_mesos',
