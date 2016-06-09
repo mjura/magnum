@@ -149,6 +149,10 @@ parameters:
     type: string
     description: ID of the security group for kubernetes minion.
 
+  kube_minion_id:
+    type: string
+    description: ID of for kubernetes minion.
+
 resources:
 
   minion_wait_handle:
@@ -196,72 +200,31 @@ resources:
             $BAY_UUID: {get_param: bay_uuid}
             $USER_TOKEN: {get_param: user_token}
             $MAGNUM_URL: {get_param: magnum_url}
+            $NODE_FIXED_IP: {get_attr: [kube_minion_eth0, fixed_ips, 0, ip_address]}
 
-  write_kubeconfig:
+  configure_flanneld:
     type: OS::Heat::SoftwareConfig
     properties:
       group: ungrouped
-      config: {get_file: fragments/write-kubeconfig.yaml}
+      config: {get_file: jeos/configure-flanneld-minion.sh}
 
-  make_cert:
+  configure_docker:
     type: OS::Heat::SoftwareConfig
     properties:
       group: ungrouped
-      config: {get_file: fragments/make-cert-client.sh}
+      config: {get_file: jeos/configure-docker.sh}
 
-  configure_docker_storage:
+  create_kubernetes_user:
     type: OS::Heat::SoftwareConfig
     properties:
       group: ungrouped
-      config: {get_file: fragments/configure-docker-storage.sh}
+      config: {get_file: jeos/create_kubernetes_user.yaml}
 
-  configure_docker_registry:
+  configure_kubernetes:
     type: OS::Heat::SoftwareConfig
     properties:
       group: ungrouped
-      config: {get_file: fragments/configure-docker-registry.sh}
-
-  kube_register:
-    type: OS::Heat::SoftwareConfig
-    properties:
-      group: ungrouped
-      config: {get_file: fragments/kube-register.yaml}
-
-  configure_kubernetes_minion:
-    type: OS::Heat::SoftwareConfig
-    properties:
-      group: ungrouped
-      config: {get_file: fragments/configure-kubernetes-minion.sh}
-
-  kube_user:
-    type: OS::Heat::SoftwareConfig
-    properties:
-      group: ungrouped
-      config: {get_file: fragments/kube-user.yaml}
-
-  kube_examples:
-    type: OS::Heat::SoftwareConfig
-    properties:
-      group: ungrouped
-      config: {get_file: fragments/kube-examples.yaml}
-
-  network_service:
-    type: OS::Heat::SoftwareConfig
-    properties:
-      group: ungrouped
-      config: {get_file: fragments/network-service.sh}
-
-  enable_services:
-    type: OS::Heat::SoftwareConfig
-    properties:
-      group: ungrouped
-      config: {get_file: fragments/enable-services-minion.sh}
-
-  enable_docker_registry:
-    type: OS::Heat::SoftwareConfig
-    properties:
-      group: ungrouped
-      config: {get_file: fragments/enable-docker-registry.sh}
+      config: {get_file: jeos/configure-kubernetes-minion.sh}
 
   minion_wc_notify:
     type: OS::Heat::SoftwareConfig
@@ -275,20 +238,21 @@ resources:
           params:
             wc_notify: {get_attr: [minion_wait_handle, curl_cli]}
 
+  disable_selinux:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: ungrouped
+      config: {get_file: fragments/disable-selinux.sh}
+
   kube_minion_init:
     type: OS::Heat::MultipartMime
     properties:
       parts:
         - config: {get_resource: write_heat_params}
-        #- config: {get_resource: kube_user}
-        #- config: {get_resource: write_kubeconfig}
-        #- config: {get_resource: make_cert}
-        #- config: {get_resource: kube_examples}
-        #- config: {get_resource: configure_docker_storage}
-        #- config: {get_resource: kube_register}
-        #- config: {get_resource: configure_kubernetes_minion}
-        #- config: {get_resource: network_service}
-        #- config: {get_resource: enable_services}
+        - config: {get_resource: configure_flanneld}
+        - config: {get_resource: configure_docker}
+        - config: {get_resource: create_kubernetes_user}
+        - config: {get_resource: configure_kubernetes}
         - config: {get_resource: minion_wc_notify}
 
   ######################################################################
@@ -305,7 +269,7 @@ resources:
   kube-minion:
     type: OS::Nova::Server
     properties:
-      name: kube_minion
+      name: {get_param: kube_minion_id}
       image: {get_param: server_image}
       flavor: {get_param: minion_flavor}
       key_name: {get_param: ssh_key_name}

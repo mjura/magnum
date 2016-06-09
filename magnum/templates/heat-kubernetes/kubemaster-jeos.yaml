@@ -182,59 +182,29 @@ resources:
             "$USER_TOKEN": {get_param: user_token}
             "$MAGNUM_URL": {get_param: magnum_url}
 
-  make_cert:
-    type: OS::Heat::SoftwareConfig
-    properties:
-      group: ungrouped
-      config: {get_file: fragments/make-cert.sh}
-
   configure_etcd:
     type: OS::Heat::SoftwareConfig
     properties:
       group: ungrouped
-      config: {get_file: fragments/configure-etcd.sh}
+      config: {get_file: jeos/configure-etcd.sh}
 
-  write_kube_os_config:
+  configure_flanneld:
     type: OS::Heat::SoftwareConfig
     properties:
       group: ungrouped
-      config: {get_file: fragments/write-kube-os-config.sh}
+      config: {get_file: jeos/configure-flanneld-master.sh}
+
+  create_kubernetes_user:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: ungrouped
+      config: {get_file: jeos/create_kubernetes_user.yaml}
 
   configure_kubernetes:
     type: OS::Heat::SoftwareConfig
     properties:
       group: ungrouped
-      config: {get_file: fragments/configure-kubernetes-master.sh}
-
-  write_network_config:
-    type: OS::Heat::SoftwareConfig
-    properties:
-      group: ungrouped
-      config: {get_file: fragments/write-network-config.sh}
-
-  network_config_service:
-    type: OS::Heat::SoftwareConfig
-    properties:
-      group: ungrouped
-      config: {get_file: fragments/network-config-service.sh}
-
-  enable_services:
-    type: OS::Heat::SoftwareConfig
-    properties:
-      group: ungrouped
-      config: {get_file: fragments/enable-services-master.sh}
-
-  kube_user:
-    type: OS::Heat::SoftwareConfig
-    properties:
-      group: ungrouped
-      config: {get_file: fragments/kube-user.yaml}
-
-  kube_examples:
-    type: OS::Heat::SoftwareConfig
-    properties:
-      group: ungrouped
-      config: {get_file: fragments/kube-examples.yaml}
+      config: {get_file: jeos/configure-kubernetes-master.sh}
 
   master_wc_notify:
     type: OS::Heat::SoftwareConfig
@@ -253,15 +223,10 @@ resources:
     properties:
       parts:
         - config: {get_resource: write_heat_params}
-        #- config: {get_resource: configure_etcd}
-        #- config: {get_resource: kube_user}
-        #- config: {get_resource: write_kube_os_config}
-        #- config: {get_resource: make_cert}
-        #- config: {get_resource: configure_kubernetes}
-        #- config: {get_resource: enable_services}
-        #- config: {get_resource: write_network_config}
-        #- config: {get_resource: network_config_service}
-        #- config: {get_resource: kube_examples}
+        - config: {get_resource: configure_etcd}
+        - config: {get_resource: configure_flanneld}
+        - config: {get_resource: create_kubernetes_user}
+        - config: {get_resource: configure_kubernetes}
         - config: {get_resource: master_wc_notify}
 
   ######################################################################
@@ -276,8 +241,10 @@ resources:
       image: {get_param: server_image}
       flavor: {get_param: master_flavor}
       key_name: {get_param: ssh_key_name}
-      user_data_format: RAW
+      user_data_format: RAW  # RARW is definetly wrong, HEAT_CFNTOOLS probably too. SOFTWARE_CONFIG might just do it
+      #user_data_format: SOFTWARE_CONFIG # http://docs.openstack.org/developer/heat/template_guide/openstack.html#OS::Nova::Server-prop-user_data_format
       user_data: {get_resource: kube_master_init}
+      config_drive: true
       networks:
         - port: {get_resource: kube_master_eth0}
 
