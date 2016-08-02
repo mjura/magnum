@@ -19,6 +19,7 @@ from magnum.common import exception
 from magnum.drivers.common import template_def as cmn_tdef
 from magnum.drivers.k8s_coreos_v1 import template_def as k8s_coreos_tdef
 from magnum.drivers.k8s_fedora_atomic_v1 import template_def as k8sa_tdef
+from magnum.drivers.k8s_opensuse_v1 import template_def as k8s_opensuse_tdef
 from magnum.drivers.mesos_ubuntu_v1 import template_def as mesos_tdef
 from magnum.drivers.swarm_fedora_atomic_v1 import template_def as swarm_tdef
 from magnum.tests import base
@@ -54,6 +55,10 @@ class TemplateDefinitionTestCase(base.TestCase):
         self.assertEqual(1, len(vm_coreos_k8s))
         self.assertEqual(k8s_coreos_tdef.CoreOSK8sTemplateDefinition,
                          vm_coreos_k8s['magnum_vm_coreos_k8s'])
+        self.assertEqual(1, len(vm_opensuse_k8s))
+        self.assertEqual(k8s_opensuse_tdef.JeOSK8sTemplateDefinition,
+                         vm_opensuse_k8s['magnum_vm_opensuse_k8s'])
+
 
     def test_get_vm_atomic_kubernetes_definition(self):
         definition = cmn_tdef.TemplateDefinition.get_template_definition(
@@ -72,6 +77,17 @@ class TemplateDefinitionTestCase(base.TestCase):
 
         self.assertIsInstance(definition,
                               k8s_coreos_tdef.CoreOSK8sTemplateDefinition)
+
+
+    def test_get_vm_opensuse_kubernetes_definition(self):
+        definition = cmn_tdef.TemplateDefinition.get_template_definition(
+            'vm',
+            'opensuse',
+            'kubernetes')
+
+        self.assertIsInstance(definition,
+                              k8s_opensuse_tdef.JeOSK8sTemplateDefinition)
+
 
     def test_get_vm_atomic_swarm_definition(self):
         definition = cmn_tdef.TemplateDefinition.get_template_definition(
