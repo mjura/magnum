@@ -45,6 +45,11 @@ template_def_opts = [
                                          'kubecluster-coreos.yaml'),
                help=_(
                    'Location of template to build a k8s cluster on CoreOS.')),
+    cfg.StrOpt('k8s_opensuse_template_path',
+               default=paths.basedir_def('templates/kubernetes/'
+                                         'kubecluster-opensuse.yaml'),
+               help=_(
+                   'Location of template to build a k8s cluster on opensuse.')),
     cfg.StrOpt('etcd_discovery_service_endpoint_format',
                default='https://discovery.etcd.io/new?size=%(size)d',
                help=_('Url for etcd public discovery endpoint.')),
@@ -60,7 +65,8 @@ template_def_opts = [
                       'on Ubuntu.')),
     cfg.ListOpt('enabled_definitions',
                 default=['magnum_vm_atomic_k8s', 'magnum_vm_coreos_k8s',
-                         'magnum_vm_atomic_swarm', 'magnum_vm_ubuntu_mesos'],
+                         'magnum_vm_atomic_swarm', 'magnum_vm_ubuntu_mesos',
+                         'magnum_bm_opensuse_k8s'],
                 help=_('Enabled bay definition entry points.')),
 ]
 
@@ -543,6 +549,46 @@ class CoreOSK8sTemplateDefinition(K8sTemplateDefinition):
     @property
     def template_path(self):
         return cfg.CONF.bay.k8s_coreos_template_path
+
+
+class OpenSUSEK8sTemplateDefinition(K8sTemplateDefinition):
+    """Kubernetes template for openSUSE/SLES JeOS Baremetal."""
+
+    provides = [
+        {'server_type': 'bm',
+         'os': 'opensuse',
+         'coe': 'kubernetes'},
+    ]
+
+    def __init__(self):
+        super(OpenSUSEK8sTemplateDefinition, self).__init__()
+        self.add_parameter('bay_uuid',
+                           bay_attr='uuid',
+                           param_type=str)
+        self.add_parameter('docker_volume_size',
+                           baymodel_attr='docker_volume_size')
+
+    def get_params(self, context, baymodel, bay, **kwargs):
+        extra_params = kwargs.pop('extra_params', {})
+
+        extra_params['username'] = context.user_name
+        extra_params['tenant_name'] = context.tenant
+        osc = clients.OpenStackClients(context)
+        extra_params['user_token'] = self._get_user_token(context, osc, bay)
+        extra_params['magnum_url'] = osc.magnum_url()
+
+        if baymodel.tls_disabled:
+            extra_params['loadbalancing_protocol'] = 'HTTP'
+            extra_params['kubernetes_port'] = 8080
+
+        return super(OpenSUSEK8sTemplateDefinition,
+                     self).get_params(context, baymodel, bay,
+                                      extra_params=extra_params,
+                                      **kwargs)
+
+    @property
+    def template_path(self):
+        return cfg.CONF.bay.k8s_opensuse_template_path
 
 
 class AtomicSwarmTemplateDefinition(BaseTemplateDefinition):
