@@ -14,11 +14,11 @@
 
 import os
 
-import magnum.conf
 from magnum.drivers.common import k8s_template_def
 from magnum.drivers.common import template_def
+from oslo_config import cfg
 
-CONF = magnum.conf.CONF
+CONF = cfg.CONF
 
 
 class JeOSK8sTemplateDefinition(k8s_template_def.K8sTemplateDefinition):
@@ -26,23 +26,31 @@ class JeOSK8sTemplateDefinition(k8s_template_def.K8sTemplateDefinition):
 
     def __init__(self):
         super(JeOSK8sTemplateDefinition, self).__init__()
-        self.add_parameter('docker_volume_size',
-                           cluster_template_attr='docker_volume_size')
         self.add_output('kube_minions',
                         cluster_attr='node_addresses')
         self.add_output('kube_masters',
                         cluster_attr='master_addresses')
 
-    def get_params(self, context, cluster_template, cluster, **kwargs):
-        extra_params = kwargs.pop('extra_params', {})
+    def get_env_files(self, cluster_template):
+        env_files = []
+        if cluster_template.master_lb_enabled:
+            env_files.append(
+                template_def.COMMON_ENV_PATH + 'with_master_lb.yaml')
+        else:
+            env_files.append(
+                template_def.COMMON_ENV_PATH + 'no_master_lb.yaml')
+        if cluster_template.floating_ip_enabled:
+            env_files.append(
+                template_def.COMMON_ENV_PATH + 'enable_floating_ip.yaml')
+        else:
+            env_files.append(
+                template_def.COMMON_ENV_PATH + 'disable_floating_ip.yaml')
 
-        extra_params['username'] = context.user_name
-        extra_params['tenant_name'] = context.tenant
+        return env_files
 
-        return super(JeOSK8sTemplateDefinition,
-                     self).get_params(context, cluster_template, cluster,
-                                      extra_params=extra_params,
-                                      **kwargs)
+    @property
+    def driver_module_path(self):
+        return __name__[:__name__.rindex('.')]
 
     def get_env_files(self, cluster_template):
         env_files = []
