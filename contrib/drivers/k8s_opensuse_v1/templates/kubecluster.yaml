@@ -102,7 +102,7 @@ parameters:
     description: >
       size of a cinder volume to allocate to docker for container/image
       storage
-    default: 25
+    default: 5
 
   wait_condition_timeout:
     type: number
