@@ -129,6 +129,26 @@ parameters:
     type: string
     description: network driver to use for instantiating container networks
 
+  kube_master_ips:
+    type: comma_delimited_list
+    description: Table of IP address of the Kubernetes master servers.
+
+  kube_master_ips_list:
+    type: string
+    description: List of IP addresses of the Kubernetes master servers.
+
+  kube_master_ports:
+    type: comma_delimited_list
+    description: List of port UUIDs.
+
+  kube_master_index:
+    type: number
+    description: index into ports list
+
+  kube_minion_ips_list:
+    type: string
+    description: List of IP addresses of the Kubernetes minion servers.
+
   wait_condition_timeout:
     type: number
     description : >
@@ -200,10 +220,14 @@ resources:
         str_replace:
           template: {get_file: fragments/write-heat-params-master.yaml}
           params:
-            "$KUBE_NODE_PUBLIC_IP": {get_attr: [kube_master_floating, floating_ip_address]}
-            "$KUBE_NODE_IP": {get_attr: [kube_master_eth0, fixed_ips, 0, ip_address]}
+            "$KUBE_API_PUBLIC_ADDRESS": {get_param: api_public_address}
+            "$KUBE_API_PRIVATE_ADDRESS": {get_param: api_private_address}
             "$KUBE_API_PORT": {get_param: kubernetes_port}
             "$KUBE_ALLOW_PRIV": {get_param: kube_allow_priv}
+            "$KUBE_MASTER_IPS": {get_param: kube_master_ips_list}
+            "$KUBE_MINION_IPS": {get_param: kube_minion_ips_list}
+            "$KUBE_NODE_IP": { "Fn::Select": [ { get_param: kube_master_index }, { get_param: kube_master_ips} ] }
+            "$KUBE_NODE_NAME": {get_param: kube_master_id}
             "$NETWORK_DRIVER": {get_param: network_driver}
             "$FLANNEL_NETWORK_CIDR": {get_param: flannel_network_cidr}
             "$FLANNEL_NETWORK_SUBNETLEN": {get_param: flannel_network_subnetlen}
@@ -295,30 +319,19 @@ resources:
       user_data: {get_resource: kube_master_init}
       config_drive: true
       networks:
-        - port: {get_resource: kube_master_eth0}
-
-  kube_master_eth0:
-    type: OS::Neutron::Port
-    properties:
-      network: {get_param: fixed_network}
-      security_groups:
-        - {get_param: secgroup_base_id}
-        - {get_param: secgroup_kube_master_id}
-      fixed_ips:
-        - subnet: {get_param: fixed_subnet}
-      replacement_policy: AUTO
+        - port: { "Fn::Select": [ { get_param: kube_master_index }, { get_param: kube_master_ports} ] }
 
   kube_master_floating:
     type: Magnum::Optional::KubeMaster::Neutron::FloatingIP
     properties:
       floating_network: {get_param: external_network}
-      port_id: {get_resource: kube_master_eth0}
+      port_id: { "Fn::Select": [ { get_param: kube_master_index }, { get_param: kube_master_ports} ] }
 
   api_pool_member:
     type: Magnum::Optional::Neutron::LBaaS::PoolMember
     properties:
       pool: {get_param: api_pool_id}
-      address: {get_attr: [kube_master_eth0, fixed_ips, 0, ip_address]}
+      address: { "Fn::Select": [ { get_param: kube_master_index }, { get_param: kube_master_ips} ] }
       subnet: { get_param: fixed_subnet }
       protocol_port: {get_param: kubernetes_port}
 
@@ -326,14 +339,14 @@ resources:
     type: Magnum::Optional::Neutron::LBaaS::PoolMember
     properties:
       pool: {get_param: etcd_pool_id}
-      address: {get_attr: [kube_master_eth0, fixed_ips, 0, ip_address]}
+      address: { "Fn::Select": [ { get_param: kube_master_index }, { get_param: kube_master_ips} ] }
       subnet: { get_param: fixed_subnet }
       protocol_port: 2379
 
 outputs:
 
   kube_master_ip:
-    value: {get_attr: [kube_master_eth0, fixed_ips, 0, ip_address]}
+    value: { "Fn::Select": [ { get_param: kube_master_index }, { get_param: kube_master_ips} ] }
     description: >
       This is the "private" IP address of the Kubernetes master node.
 

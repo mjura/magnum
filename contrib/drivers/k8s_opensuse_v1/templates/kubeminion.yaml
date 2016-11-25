@@ -85,6 +85,26 @@ parameters:
     type: string
     description: network driver to use for instantiating container networks
 
+  kube_minion_ips:
+    type: comma_delimited_list
+    description: Table of IP address of the Kubernetes master servers.
+
+  kube_master_ips_list:
+    type: string
+    description: List of IP addresses of the Kubernetes master servers.
+
+  kube_minion_ports:
+    type: comma_delimited_list
+    description: List of port UUIDs.
+
+  kube_minion_index:
+    type: number
+    description: index into ports list
+
+  kube_minion_ips_list:
+    type: string
+    description: List of IP addresses of the Kubernetes minion servers.
+
   wait_condition_timeout:
     type: number
     description : >
@@ -195,10 +215,13 @@ resources:
         str_replace:
           template: {get_file: fragments/write-heat-params-minion.yaml}
           params:
+            "$KUBE_API_PORT": {get_param: kubernetes_port}
             "$KUBE_ALLOW_PRIV": {get_param: kube_allow_priv}
             "$KUBE_MASTER_IP": {get_param: kube_master_ip}
-            "$KUBE_NODE_IP": {get_attr: [kube_minion_eth0, fixed_ips, 0, ip_address]}
-            "$KUBE_API_PORT": {get_param: kubernetes_port}
+            "$KUBE_MASTER_IPS": {get_param: kube_master_ips_list}
+            "$KUBE_MINION_IPS": {get_param: kube_minion_ips_list}
+            "$KUBE_NODE_IP": { "Fn::Select": [ { get_param: kube_minion_index }, { get_param: kube_minion_ips} ] }
+            "$KUBE_NODE_NAME": {get_param: kube_minion_id}
             "$ETCD_SERVER_IP": {get_param: etcd_server_ip}
             "$DOCKER_VOLUME": {get_resource: docker_volume}
             "$NETWORK_DRIVER": {get_param: network_driver}
@@ -296,23 +319,13 @@ resources:
       user_data_format: RAW
       user_data: {get_resource: kube_minion_init}
       networks:
-        - port: {get_resource: kube_minion_eth0}
-
-  kube_minion_eth0:
-    type: OS::Neutron::Port
-    properties:
-      network: {get_param: fixed_network}
-      security_groups:
-        - get_param: secgroup_kube_minion_id
-      fixed_ips:
-        - subnet: {get_param: fixed_subnet}
-      replacement_policy: AUTO
+        - port: { "Fn::Select": [ { get_param: kube_minion_index }, { get_param: kube_minion_ports} ] }
 
   kube_minion_floating:
     type: Magnum::Optional::KubeMinion::Neutron::FloatingIP
     properties:
       floating_network: {get_param: external_network}
-      port_id: {get_resource: kube_minion_eth0}
+      port_id: { "Fn::Select": [ { get_param: kube_minion_index }, { get_param: kube_minion_ports} ] }
 
   ######################################################################
   #
@@ -335,9 +348,9 @@ resources:
 outputs:
 
   kube_minion_ip:
-    value: {get_attr: [kube_minion_eth0, fixed_ips, 0, ip_address]}
+    value: { "Fn::Select": [ { get_param: kube_minion_index }, { get_param: kube_minion_ips} ] }
     description: >
-      This is the "public" IP address of the Kubernetes minion node.
+      This is the "private" IP address of the Kubernetes minion node.
 
   kube_minion_external_ip:
     value: {get_attr: [kube_minion_floating, floating_ip_address]}

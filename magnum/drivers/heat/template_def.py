@@ -290,7 +290,9 @@ class BaseTemplateDefinition(TemplateDefinition):
 
     def get_discovery_url(self, cluster):
         if hasattr(cluster, 'discovery_url') and cluster.discovery_url:
-            if getattr(cluster, 'master_count', None) is not None:
+            if cluster.discovery_url == 'None' or cluster.discovery_url == 'none':
+                pass
+            elif getattr(cluster, 'master_count', None) is not None:
                 self.validate_discovery_url(cluster.discovery_url,
                                             cluster.master_count)
             else:

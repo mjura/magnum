@@ -26,7 +26,7 @@ sed -i '
 
 sed -i '
     /^KUBELET_ADDRESS=/ s/=.*/="--address=0.0.0.0"/
-    /^KUBELET_HOSTNAME=/ s/=.*/="--hostname-override='"$myip"'"/
+    /^KUBELET_HOSTNAME=/ s/=.*/=""/
     /^KUBELET_API_SERVER=/ s|=.*|="--api-servers='"$KUBE_MASTER_URI"'"|
     /^KUBELET_ARGS=/ s|=.*|="--node-ip='"$myip"' --container-runtime=docker --config=/etc/kubernetes/manifests '"$KUBE_CONFIG"'"|
 ' /etc/kubernetes/kubelet

@@ -446,6 +446,42 @@ resources:
 
   ######################################################################
   #
+  # kubernetes network. These are a resource groups that will create
+  # network ports for masters and minions nodes.
+  #
+
+  kube_master_ports:
+    type: OS::Heat::ResourceGroup
+    depends_on:
+      - extrouter_inside
+    properties:
+      count: { get_param: number_of_masters }
+      resource_def:
+        type: kubeport.yaml
+        properties:
+          fixed_network: { get_resource: fixed_network }
+          security_groups:
+            - { get_resource: secgroup_base }
+            - { get_resource: secgroup_kube_master }
+          fixed_subnet: { get_resource: fixed_subnet }
+
+  kube_minion_ports:
+    type: OS::Heat::ResourceGroup
+    depends_on:
+      - extrouter_inside
+    properties:
+      count: { get_param: number_of_minions }
+      resource_def:
+        type: kubeport.yaml
+        properties:
+          fixed_network: { get_resource: fixed_network }
+          security_groups:
+            - { get_resource: secgroup_base }
+            - { get_resource: secgroup_kube_master }
+          fixed_subnet: { get_resource: fixed_subnet }
+
+  ######################################################################
+  #
   # resources that expose the IPs of either the kube master or a given
   # LBaaS pool depending on whether LBaaS is enabled for the cluster.
   #
@@ -525,7 +561,13 @@ resources:
           tls_disabled: {get_param: tls_disabled}
           secgroup_base_id: {get_resource: secgroup_base}
           secgroup_kube_master_id: {get_resource: secgroup_kube_master}
+          kube_master_index: '%index%'
           kube_master_id: 'kube-master%index%'
+          kube_master_ports: { get_attr: [kube_master_ports, refs] }
+          kube_master_ips: {get_attr: [kube_master_ports, fixed_ip]}
+          kube_master_ips_list: { list_join: ["|", {get_attr: [kube_master_ports, fixed_ip]} ] }
+          kube_minion_ips_list: { list_join: ["|", {get_attr: [kube_minion_ports, fixed_ip]} ] }
+
 
   ######################################################################
   #
@@ -576,7 +618,12 @@ resources:
           kubernetes_port: {get_param: kubernetes_port}
           tls_disabled: {get_param: tls_disabled}
           secgroup_kube_minion_id: {get_resource: secgroup_kube_minion}
+          kube_minion_index: '%index%'
           kube_minion_id: 'kube-minion%index%'
+          kube_minion_ports: { get_attr: [kube_minion_ports, refs] }
+          kube_minion_ips: {get_attr: [kube_minion_ports, fixed_ip]}
+          kube_master_ips_list: { list_join: ["|", {get_attr: [kube_master_ports, fixed_ip]} ] }
+          kube_minion_ips_list: { list_join: ["|", {get_attr: [kube_minion_ports, fixed_ip]} ] }
 
 outputs:
 
