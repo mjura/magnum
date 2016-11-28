@@ -11,6 +11,9 @@ if [[ ! -f "${SERVICE_ACCOUNT_KEY}" ]]; then
     openssl genrsa -out "${SERVICE_ACCOUNT_KEY}" 2048 2>/dev/null
 fi
 
+# Setting correct permissions for Kubernetes files
+chown -R kube:kube /var/lib/kubernetes
+
 sed -i '
     /^KUBE_ALLOW_PRIV=/ s|=.*|="--allow-privileged='"$KUBE_ALLOW_PRIV"'"|
 ' /etc/kubernetes/config
