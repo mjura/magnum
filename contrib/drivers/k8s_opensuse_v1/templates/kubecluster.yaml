@@ -54,7 +54,7 @@ parameters:
     type: string
     description: >
       address range used by kubernetes for service portals
-    default: 10.254.0.0/16
+    default: 172.21.0.0/16
 
   network_driver:
     type: string
