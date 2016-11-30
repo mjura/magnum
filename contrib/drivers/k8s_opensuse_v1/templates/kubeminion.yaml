@@ -128,6 +128,10 @@ parameters:
       Indicates whether the docker registry is enabled.
     default: false
 
+  registry_url:
+    type: string
+    description: Docker Registry URL service
+
   registry_port:
     type: number
     description: port of registry service
@@ -226,6 +230,7 @@ resources:
             "$DOCKER_VOLUME": {get_resource: docker_volume}
             "$NETWORK_DRIVER": {get_param: network_driver}
             "$REGISTRY_ENABLED": {get_param: registry_enabled}
+            "$REGISTRY_URL": {get_param: registry_url}
             "$REGISTRY_PORT": {get_param: registry_port}
             "$REGISTRY_AUTH_URL": {get_param: registry_auth_url}
             "$REGISTRY_REGION": {get_param: registry_region}

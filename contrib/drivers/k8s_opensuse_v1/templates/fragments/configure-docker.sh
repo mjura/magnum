@@ -31,7 +31,14 @@ if [ "$NETWORK_DRIVER" == "flannel" ]; then
     else
         echo "DOCKER_NETWORK_OPTIONS=\"--bip=$FLANNEL_SUBNET --mtu=$FLANNEL_MTU\"" >> /etc/sysconfig/docker
     fi
+fi
 
+if [ "$REGISTRY_ENABLED" == "True" ]; then
+    REGISTRY_DOMAIN=${REGISTRY_URL##*/}
+    sed -i '
+        /^DOCKER_OPTS=/ s|=.*|="--storage-driver=btrfs --insecure-registry='"$REGISTRY_DOMAIN"' --registry-mirror='"$REGISTRY_URL"'"|
+    ' /etc/sysconfig/docker
+else
     sed -i '
         /^DOCKER_OPTS=/ s/=.*/="--storage-driver=btrfs"/
     ' /etc/sysconfig/docker

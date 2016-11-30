@@ -130,10 +130,20 @@ parameters:
       Indicates whether the docker registry is enabled.
     default: false
 
+  registry_url:
+    type: string
+    description: Docker Registry URL service
+    default: ""
+
   registry_port:
     type: number
     description: port of registry service
     default: 5000
+
+  swift_region:
+    type: string
+    description: region of swift service
+    default: ""
 
   registry_username:
     type: string
@@ -599,6 +609,7 @@ resources:
           docker_volume_size: {get_param: docker_volume_size}
           wait_condition_timeout: {get_param: wait_condition_timeout}
           registry_enabled: {get_param: registry_enabled}
+          registry_url: {get_param: registry_url}
           registry_port: {get_param: registry_port}
           registry_username: {get_param: registry_username}
           registry_password: {get_param: registry_password}

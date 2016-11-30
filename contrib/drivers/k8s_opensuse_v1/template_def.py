@@ -31,6 +31,37 @@ class JeOSK8sTemplateDefinition(k8s_template_def.K8sTemplateDefinition):
         self.add_output('kube_masters',
                         cluster_attr='master_addresses')
 
+    def get_params(self, context, cluster_template, cluster, **kwargs):
+        extra_params = kwargs.pop('extra_params', {})
+        scale_mgr = kwargs.pop('scale_manager', None)
+        if scale_mgr:
+            hosts = self.get_output('kube_minions_private')
+            extra_params['minions_to_remove'] = (
+                scale_mgr.get_removal_nodes(hosts))
+
+        extra_params['discovery_url'] = self.get_discovery_url(cluster)
+        osc = self.get_osc(context)
+        extra_params['magnum_url'] = osc.magnum_url()
+
+        if cluster_template.tls_disabled:
+            extra_params['loadbalancing_protocol'] = 'HTTP'
+            extra_params['kubernetes_port'] = 8080
+
+        label_list = ['flannel_network_cidr', 'flannel_backend',
+                      'flannel_network_subnetlen', 'registry_url']
+        for label in label_list:
+            extra_params[label] = cluster_template.labels.get(label)
+
+        if cluster_template.registry_enabled:
+            extra_params['swift_region'] = CONF.docker_registry.swift_region
+            extra_params['registry_container'] = (
+                CONF.docker_registry.swift_registry_container)
+
+        return super(JeOSK8sTemplateDefinition,
+                     self).get_params(context, cluster_template, cluster,
+                                      extra_params=extra_params,
+                                      **kwargs)
+
     def get_env_files(self, cluster_template):
         env_files = []
         if cluster_template.master_lb_enabled:
