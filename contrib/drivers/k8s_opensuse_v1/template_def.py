@@ -26,6 +26,8 @@ class JeOSK8sTemplateDefinition(k8s_template_def.K8sTemplateDefinition):
 
     def __init__(self):
         super(JeOSK8sTemplateDefinition, self).__init__()
+        self.add_parameter('docker_volume_size',
+                        cluster_template_attr='docker_volume_size')
         self.add_output('kube_minions',
                         cluster_attr='node_addresses')
         self.add_output('kube_masters',
